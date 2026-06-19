@@ -61,13 +61,23 @@ Project **rules** add path-scoped team standards on top — see
 
 ## Install
 
-You need Python 3.10+, `git`, and the reviewer CLIs you want to use, installed
-and logged in:
+**1. Prerequisites.** You need `python3` (3.10+) and `git`, plus at least one
+reviewer CLI installed and logged in:
 
 - [`claude`](https://claude.com/claude-code) (Claude Code)
 - [`codex`](https://developers.openai.com/codex/cli) (Codex CLI)
 
-Then:
+The debate needs **two different vendors** to work well, so installing both is
+recommended. But you are not blocked if you only have one today: see
+[Only have one model?](#only-have-one-model) below. Check what you have:
+
+```bash
+python3 --version
+claude --version    # at least one of these two
+codex --version
+```
+
+**2. Install x-review.**
 
 ```bash
 git clone https://github.com/Hungsiro506/x-review
@@ -78,19 +88,54 @@ bash install.sh       # installs the `x-review` command + the Claude Code skill
 `install.sh` tries `pip install -e .`, then `pipx`, and finally a self-contained
 launcher shim, so it still works on the "externally-managed" Python (PEP 668)
 you get from Homebrew or recent Debian/Ubuntu, where a bare `pip install` is
-blocked. If it prints a PATH hint, add the shown directory to your `PATH`.
+blocked.
 
-To install with pip directly (only if your Python is not externally-managed):
+**3. Make sure it is on your PATH.** If the installer printed a line like
+`⚠ 'x-review' not on PATH yet`, run the `export PATH=...` it shows (and add it to
+your `~/.zshrc` or `~/.bashrc` to make it permanent), then open a new shell.
+
+**4. Verify (no model calls, no API cost).**
 
 ```bash
-pip install --user -e .
-# on a PEP 668 Python use:  pipx install -e .   or   pip install -e . --break-system-packages
+x-review --list-skills    # should print: concurrency, general, go, python
 ```
 
-A preflight check confirms each reviewer's CLI is present and logged in before
-any model runs, so you find out in seconds, not minutes.
+If that prints the skill list, the tool is installed correctly. If you get
+"command not found", revisit step 3.
+
+### Only have one model?
+
+The default runs `claude` and `codex`. If only one is installed, name it
+explicitly so preflight does not stop you:
+
+```bash
+x-review --reviewers claude     # or: --reviewers codex
+```
+
+This runs a single-reviewer pass. It still produces a ranked report, but there
+is no debate, which is where most of the value is. Install a second vendor when
+you can. Before any model runs, x-review checks the CLIs you asked for and tells
+you exactly which one is missing and how to fix it, so you never wait minutes to
+discover a missing login.
 
 ## Quick start
+
+Your first review: go to any git repo, get onto a branch with some changes, and
+run the command.
+
+```bash
+cd ~/your/repo
+git switch -c my-change   # or just be on an existing feature branch with commits
+# ... make or already have some changes ...
+x-review
+```
+
+It prints its progress as it goes. Expect it to take from under a minute to a
+few minutes depending on the size of the change and the number of rounds, and it
+uses your `claude`/`codex` plan while it runs. When it finishes, the ranked
+report is printed and saved under `~/.cache/x-review/...`.
+
+More ways to call it:
 
 ```bash
 cd ~/any/repo

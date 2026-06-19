@@ -20,7 +20,7 @@ from pathlib import Path
 from . import config as cfg
 from . import context as ctx
 from . import debate as dbt
-from . import gittarget, rules, synth
+from . import gittarget, reviewers, rules, synth
 
 
 def log(msg):
@@ -118,7 +118,12 @@ def main():
     for m in msgs:
         log(m.strip())
     if not ok:
-        print("\nPreflight failed — fix the missing CLIs above and retry.", file=sys.stderr)
+        print("\nPreflight failed: a reviewer CLI above is missing or not logged in.",
+              file=sys.stderr)
+        available = [r["id"] for r in reviewer_cfgs if reviewers.cli_available(r["kind"])]
+        if available:
+            print(f"Tip: run with only what you have installed:  "
+                  f"x-review --reviewers {','.join(available)}", file=sys.stderr)
         return 3
 
     # --- Skill packs --------------------------------------------------------
