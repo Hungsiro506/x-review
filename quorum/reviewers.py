@@ -29,7 +29,7 @@ def _clean_env():
 def invoke(kind, prompt, repo=None, explore=False):
     """Run one reviewer/synth call. Returns raw stdout text ('' on failure)."""
     env = _clean_env()
-    cwd = repo if (explore and repo) else tempfile.mkdtemp(prefix="dreview_")
+    cwd = repo if (explore and repo) else tempfile.mkdtemp(prefix="quorum_")
     created_tmp = not (explore and repo)
 
     if kind == "claude":

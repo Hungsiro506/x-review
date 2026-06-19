@@ -1,7 +1,7 @@
-# debate-review configuration.
+# quorum configuration.
 # A reviewer = a model CLI + a persona + a stack of skill packs.
 # Add a vendor by adding an entry here and (if its CLI invocation differs)
-# a branch in dreview/reviewers.py.
+# a branch in quorum/reviewers.py.
 
 reviewers:
   - id: claude
@@ -30,7 +30,7 @@ defaults:
   max_context_chars: 120000 # hard cap on the whole context pack
 
 # Skill packs auto-selected by the dominant language of the diff.
-# Override per-run with --skills, or per-repo with .debate-review.yaml at the repo root.
+# Override per-run with --skills, or per-repo with .quorum.yaml at the repo root.
 skill_defaults:
   go: [general, concurrency]
   cpp: [general, concurrency]

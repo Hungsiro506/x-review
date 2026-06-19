@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""debate-review: adversarial multi-model review of a branch (PR-in-waiting).
+"""quorum: adversarial multi-model review of a branch (PR-in-waiting).
 
 Usage:
-  debate-review                      # review current branch vs its base
-  debate-review feature/foo          # review a specific branch
-  debate-review --base develop       # override the base branch
-  debate-review HEAD~3..HEAD         # explicit commit range
-  debate-review --deep               # more rounds + all configured reviewers
-  debate-review --skills go,concurrency --rounds 3
-  debate-review --explore            # let reviewers walk the live repo
+  quorum                      # review current branch vs its base
+  quorum feature/foo          # review a specific branch
+  quorum --base develop       # override the base branch
+  quorum HEAD~3..HEAD         # explicit commit range
+  quorum --deep               # more rounds + all configured reviewers
+  quorum --skills go,concurrency --rounds 3
+  quorum --explore            # let reviewers walk the live repo
 """
 
 import argparse

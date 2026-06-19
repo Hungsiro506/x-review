@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "debate-review"
+name = "quorum"
 version = "0.1.0"
 description = "Adversarial multi-model code review for any repo — models debate, then synthesize one ranked review."
 readme = "README.md"
@@ -19,14 +19,14 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/brvu/debate-review"
-Issues = "https://github.com/brvu/debate-review/issues"
+Homepage = "https://github.com/brvu/quorum"
+Issues = "https://github.com/brvu/quorum/issues"
 
 [project.scripts]
-debate-review = "dreview.cli:main"
+quorum = "quorum.cli:main"
 
 [tool.setuptools]
-packages = ["dreview"]
+packages = ["quorum"]
 
 [tool.setuptools.package-data]
-dreview = ["data/config.yaml", "data/skills/*.md", "data/SKILL.md"]
+quorum = ["data/config.yaml", "data/skills/*.md", "data/SKILL.md"]
