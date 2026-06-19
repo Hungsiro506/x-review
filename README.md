@@ -1,12 +1,12 @@
-# Quorum
+# x-review
 
-> **Quorum-based code review.** Point it at a branch; a committee of model
+> **x-review-based code review.** Point it at a branch; a committee of model
 > reviewers (different vendors) reviews it, **debates to agreement**, and hands
 > you one ranked verdict — not three walls of opinion.
 
 ```bash
 cd ~/your/repo
-quorum          # convene the committee on the current branch
+x-review          # convene the committee on the current branch
 ```
 
 ## Why I built this
@@ -20,23 +20,23 @@ unfamiliar change in your head. That debt is what makes review slow, shallow,
 and easy to rush — and naively throwing more reviewers (or more model output) at
 the problem only deepens it.
 
-Quorum is a bet that a **committee beats a soloist** on *both* costs at once.
+x-review is a bet that a **committee beats a soloist** on *both* costs at once.
 
-- **Correctness — through debate.** Instead of trusting one model, Quorum
+- **Correctness — through debate.** Instead of trusting one model, x-review
   convenes a panel of *different* model vendors and makes them argue, every
   claim grounded in actual code. Models have different blind spots; forcing them
   to defend or revise against each other surfaces far more than any one alone.
   A finding earns your attention by the committee converging on it —
   **agreement is the signal, disagreement is a flag**, not noise.
 - **Less cognitive debt — through distillation.** A debate could easily produce
-  *more* to read. Quorum does the opposite: it collapses the whole argument into
+  *more* to read. x-review does the opposite: it collapses the whole argument into
   a ranked verdict (Blocker→Low) with two audiences — a jargon-free **manager
   summary** and a deep **tech-lead detail** sharing the same numbering — plus a
   single merge decision. You read the committee's conclusion, not the
   transcript. Your job shrinks from *"understand everything"* to *"act on what
-  the quorum agreed matters most."*
+  the x-review agreed matters most."*
 
-`quorum` is my opinionated take on that workflow: one command you run on your own
+`x-review` is my opinionated take on that workflow: one command you run on your own
 branches before opening or merging a PR. It works in three stages:
 
 1. **Independent review** — each reviewer reviews the diff (+ changed-file
@@ -64,8 +64,8 @@ It is **open-source-first and vendor-neutral**: a "reviewer" is just a model CLI
 **Install the tool**
 
 ```bash
-git clone https://github.com/brvu/quorum
-cd quorum
+git clone https://github.com/hungsiro506/x-review
+cd x-review
 ./install.sh          # pip install -e . + installs the Claude Code skill
 ```
 
@@ -83,22 +83,22 @@ A preflight check verifies every reviewer's CLI is present and authenticated
 ```bash
 cd ~/any/repo
 
-quorum                  # current branch vs auto-detected base (+ uncommitted work)
-quorum feature/foo      # a specific branch
-quorum --base develop   # override the base branch
-quorum HEAD~3..HEAD     # explicit commit range
-quorum --deep           # more rounds + all configured reviewers
-quorum --skills go,concurrency --rounds 3
-quorum --explore        # let reviewers walk the live repo (read-only)
-quorum --list-skills
+x-review                  # current branch vs auto-detected base (+ uncommitted work)
+x-review feature/foo      # a specific branch
+x-review --base develop   # override the base branch
+x-review HEAD~3..HEAD     # explicit commit range
+x-review --deep           # more rounds + all configured reviewers
+x-review --skills go,concurrency --rounds 3
+x-review --explore        # let reviewers walk the live repo (read-only)
+x-review --list-skills
 ```
 
-From **Claude Code**, the installed skill lets you run `/quorum` and then
+From **Claude Code**, the installed skill lets you run `/x-review` and then
 act on a finding ("fix #2") interactively — that's where Claude/Cursor earns its
 keep, on top of the review.
 
 The final Markdown report prints to stdout and is saved under
-`~/.cache/quorum/<repo>/<branch>/<timestamp>.md`. **Nothing is written
+`~/.cache/x-review/<repo>/<branch>/<timestamp>.md`. **Nothing is written
 into the repo under review.**
 
 ## How target resolution works
@@ -115,45 +115,45 @@ into the repo under review.**
 This is the whole point of the design — extend without touching code:
 
 - **Add knowledge (a skill pack):** drop a markdown file in your user skills dir
-  `~/.config/quorum/skills/<name>.md` (or the bundled `quorum/data/skills/`),
-  then reference it via `--skills`, a repo-local `.quorum.yaml`, or
+  `~/.config/x-review/skills/<name>.md` (or the bundled `xreview/data/skills/`),
+  then reference it via `--skills`, a repo-local `.x-review.yaml`, or
   `skill_defaults` in config. Skill packs are how you teach reviewers your
   architecture standards, domain rules, or recurring-bug patterns.
 - **Add a reviewer / persona:** add an entry under `reviewers:` in config. If its
-  CLI is invoked differently, add a branch in `quorum/reviewers.py`.
-- **Per-repo defaults:** commit a `.quorum.yaml` at the repo root:
+  CLI is invoked differently, add a branch in `x-review/reviewers.py`.
+- **Per-repo defaults:** commit a `.x-review.yaml` at the repo root:
 
   ```yaml
   reviewers: [claude, codex]
   skills: [general, concurrency]
   ```
 
-- **User config override:** put a `config.yaml` in `~/.config/quorum/` to
+- **User config override:** put a `config.yaml` in `~/.config/x-review/` to
   override reviewers/defaults globally without editing the package.
 
 ## How it works (architecture)
 
 ```
-quorum <branch>
+x-review <branch>
   │
   ├─ gittarget   branch → diff (merge-base), changed files, uncommitted scope
   ├─ context     diff + full content of changed files; language detection
   ├─ debate      round 1 independent → broadcast (anonymized) → revise → … (convergence-stop)
   ├─ synth       cluster + rank + two-audience report + merge decision
-  └─ saved to ~/.cache/quorum/...
+  └─ saved to ~/.cache/x-review/...
 ```
 
 | File | Responsibility |
 |------|----------------|
-| `quorum/cli.py` | argument parsing, orchestration |
-| `quorum/gittarget.py` | branch→diff resolution |
-| `quorum/context.py` | context pack, language detection |
-| `quorum/reviewers.py` | model CLI invocation + output parsing |
-| `quorum/debate.py` | the multi-round adversarial loop |
-| `quorum/synth.py` | final merge / ranking / two-audience report |
-| `quorum/config.py` | config + skill resolution + preflight |
-| `quorum/data/config.yaml` | reviewers, defaults, skill routing |
-| `quorum/data/skills/*.md` | knowledge packs |
+| `x-review/cli.py` | argument parsing, orchestration |
+| `x-review/gittarget.py` | branch→diff resolution |
+| `x-review/context.py` | context pack, language detection |
+| `x-review/reviewers.py` | model CLI invocation + output parsing |
+| `x-review/debate.py` | the multi-round adversarial loop |
+| `x-review/synth.py` | final merge / ranking / two-audience report |
+| `x-review/config.py` | config + skill resolution + preflight |
+| `xreview/data/config.yaml` | reviewers, defaults, skill routing |
+| `xreview/data/skills/*.md` | knowledge packs |
 
 ## Cost & limitations
 

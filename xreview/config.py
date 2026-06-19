@@ -3,10 +3,10 @@
 Paths resolve in layers so the tool works both pip-installed and from source,
 and so users can extend it without editing the package:
 
-  config:  repo-local .quorum.yaml  >  user config  >  bundled default
+  config:  repo-local .x-review.yaml  >  user config  >  bundled default
   skills:  user skills dir  >  bundled skills
 
-User dir defaults to ~/.config/quorum (override with QUORUM_HOME).
+User dir defaults to ~/.config/x-review (override with XREVIEW_HOME).
 """
 
 import os
@@ -22,8 +22,8 @@ SKILL_MD = DATA_DIR / "SKILL.md"
 
 USER_DIR = Path(
     os.environ.get(
-        "QUORUM_HOME",
-        Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "quorum",
+        "XREVIEW_HOME",
+        Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "x-review",
     )
 )
 USER_CONFIG = USER_DIR / "config.yaml"
@@ -42,8 +42,8 @@ def load_config():
 
 
 def load_repo_overrides(repo):
-    """Per-repo .quorum.yaml at the repo root, if present."""
-    p = Path(repo) / ".quorum.yaml"
+    """Per-repo .x-review.yaml at the repo root, if present."""
+    p = Path(repo) / ".x-review.yaml"
     if p.exists():
         with open(p) as f:
             return yaml.safe_load(f) or {}
@@ -70,7 +70,7 @@ def resolve_skills(skill_names):
 
 
 def pick_skill_names(cli_skills, repo_overrides, config, language):
-    """Order: --skills flag > .quorum.yaml > language default."""
+    """Order: --skills flag > .x-review.yaml > language default."""
     if cli_skills:
         return cli_skills
     if repo_overrides.get("skills"):
@@ -108,4 +108,4 @@ def preflight(reviewer_cfgs, synth_kind):
 def scratch_dir(repo_name, target_ref):
     base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
     safe = "".join(c if c.isalnum() or c in "-_." else "_" for c in target_ref)
-    return base / "quorum" / repo_name / safe
+    return base / "x-review" / repo_name / safe

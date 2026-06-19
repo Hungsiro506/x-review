@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""quorum: adversarial multi-model review of a branch (PR-in-waiting).
+"""x-review: adversarial multi-model review of a branch (PR-in-waiting).
 
 Usage:
-  quorum                      # review current branch vs its base
-  quorum feature/foo          # review a specific branch
-  quorum --base develop       # override the base branch
-  quorum HEAD~3..HEAD         # explicit commit range
-  quorum --deep               # more rounds + all configured reviewers
-  quorum --skills go,concurrency --rounds 3
-  quorum --explore            # let reviewers walk the live repo
+  x-review                      # review current branch vs its base
+  x-review feature/foo          # review a specific branch
+  x-review --base develop       # override the base branch
+  x-review HEAD~3..HEAD         # explicit commit range
+  x-review --deep               # more rounds + all configured reviewers
+  x-review --skills go,concurrency --rounds 3
+  x-review --explore            # let reviewers walk the live repo
 """
 
 import argparse

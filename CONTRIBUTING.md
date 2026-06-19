@@ -1,12 +1,12 @@
 # Contributing
 
-Thanks for helping improve quorum. It's small and means to stay that way.
+Thanks for helping improve x-review. It's small and means to stay that way.
 
 ## Setup
 
 ```bash
-git clone https://github.com/brvu/quorum
-cd quorum
+git clone https://github.com/hungsiro506/x-review
+cd x-review
 pip install --user -e .
 python -m pytest -q
 ```
@@ -23,7 +23,7 @@ python -m pytest -q
 
 ## Good first contributions
 
-- **New skill packs** (`quorum/data/skills/*.md`) — review lenses for a
+- **New skill packs** (`xreview/data/skills/*.md`) — review lenses for a
   language, framework, or class of bug. Highest-leverage, lowest-risk.
 - **New reviewer adapters** in `reviewers.py` for other model CLIs.
 - **Better context gathering** (call-chain / symbol extraction) in `context.py`.
@@ -34,4 +34,4 @@ python -m pytest -q
 2. Add/adjust tests where it makes sense.
 3. Run `python -m pytest -q` and a real `--rounds 1` smoke test.
 4. Open a PR describing the change and its motivation. (Dogfood:
-   `quorum` your own branch first.)
+   `x-review` your own branch first.)

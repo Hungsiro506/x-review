@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from quorum import config, context, gittarget, reviewers, synth
+from xreview import config, context, gittarget, reviewers, synth
 
 
 def test_config_loads_and_has_reviewers():

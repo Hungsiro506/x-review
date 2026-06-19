@@ -1,4 +1,4 @@
-# CLAUDE.md — working on the quorum codebase
+# CLAUDE.md — working on the x-review codebase
 
 Guidance for Claude (or any agent) writing code **in this repo**. This is about
 building the tool, not about the reviews it produces.
@@ -34,7 +34,7 @@ stop and reconsider.
 ## Hard rules
 
 1. **Read-only on the repo under review.** Reviewers must never write to the
-   target repo. Artifacts go to `~/.cache/quorum/...` only.
+   target repo. Artifacts go to `~/.cache/x-review/...` only.
 2. **Preflight before spend.** Any new external dependency (a CLI, an API) must
    be checked in `config.preflight` so failures surface in seconds.
 3. **Vendor-neutral core.** No model name hardcoded outside `reviewers.py` and
@@ -66,7 +66,7 @@ stop and reconsider.
 ```bash
 pip install -e .
 python -m pytest -q            # unit tests (no model calls)
-quorum --list-skills    # smoke: config + skills load
+x-review --list-skills    # smoke: config + skills load
 ```
 
 Unit tests must not call models or hit the network. For end-to-end, run against
@@ -74,7 +74,7 @@ a throwaway git repo with a planted bug and `--rounds 1 --reviewers claude`.
 
 ## Common tasks
 
-- **Add a skill pack:** create `quorum/data/skills/<name>.md` (a focused review
+- **Add a skill pack:** create `xreview/data/skills/<name>.md` (a focused review
   lens). Optionally add it to `skill_defaults` in `data/config.yaml`. No code.
 - **Add a reviewer/persona:** add an entry under `reviewers:` in
   `data/config.yaml`. If the CLI invocation differs from claude/codex, add a
