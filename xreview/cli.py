@@ -27,6 +27,23 @@ def log(msg):
     print(f"  ▸ {msg}", file=sys.stderr, flush=True)
 
 
+def _gather_guidance(inline, files):
+    """Assemble per-run context from --context (repeatable, '-' = stdin) and
+    --context-file (repeatable). Returns one string given to every reviewer."""
+    parts = []
+    for f in files or []:
+        try:
+            parts.append(Path(f).read_text())
+        except OSError as e:
+            print(f"warning: could not read --context-file {f}: {e}", file=sys.stderr)
+    for c in inline or []:
+        if c == "-":
+            parts.append(sys.stdin.read())
+        else:
+            parts.append(c)
+    return "\n\n".join(p.strip() for p in parts if p and p.strip())
+
+
 def main():
     ap = argparse.ArgumentParser(description="Adversarial multi-model PR/branch review.")
     ap.add_argument("target", nargs="?", help="branch name or A..B range (default: current branch)")
@@ -36,6 +53,10 @@ def main():
     ap.add_argument("--reviewers", help="comma-separated reviewer ids to use")
     ap.add_argument("--skills", help="comma-separated skill packs (overrides auto/repo)")
     ap.add_argument("--explore", action="store_true", help="reviewers walk the live repo (read-only)")
+    ap.add_argument("--context", action="append", default=[],
+                    help="free-form context/guidance for this review (repeatable; use '-' to read stdin)")
+    ap.add_argument("--context-file", action="append", default=[],
+                    help="file whose contents are added as context (e.g. a design doc; repeatable)")
     ap.add_argument("--rules", help="path to an extra rules YAML file for this run")
     ap.add_argument("--no-rules", action="store_true", help="disable project rule injection")
     ap.add_argument("--list-skills", action="store_true", help="list available skill packs and exit")
@@ -119,6 +140,9 @@ def main():
             for rid in skills_by_id:
                 skills_by_id[rid] = (skills_by_id[rid] + "\n\n" + rules_block).strip()
 
+    # --- Per-run context / guidance ----------------------------------------
+    guidance = _gather_guidance(args.context, args.context_file)
+
     # --- Banner -------------------------------------------------------------
     if target["mode"] == "range":
         scope = f"range {target['range']}"
@@ -129,19 +153,23 @@ def main():
     log(f"repo: {target['repo_name']}   scope: {scope}")
     log(f"language: {language}   skills: {', '.join(skill_names)}")
     rules_note = f"{len(in_effect)} in effect" if not args.no_rules else "disabled"
+    ctx_note = f"context: explore" if args.explore else "context: diff+files"
+    if guidance:
+        ctx_note += f" + {len(guidance)} chars guidance"
     log(f"reviewers: {', '.join(r['id'] for r in reviewer_cfgs)}   rounds: {rounds}   "
-        f"context: {'explore' if args.explore else 'diff+files'}   rules: {rules_note}")
+        f"{ctx_note}   rules: {rules_note}")
 
     context = ctx.build(target,
                         max_file_lines=config["defaults"]["max_file_lines"],
                         max_chars=config["defaults"]["max_context_chars"],
-                        explore=args.explore)
+                        explore=args.explore,
+                        guidance=guidance)
 
     # --- Debate + synthesize ------------------------------------------------
     start = time.time()
     final_state = dbt.run(reviewer_cfgs, context, rounds, args.explore,
                           target["repo"], skills_by_id, log)
-    report = synth.synthesize(synth_kind, final_state, log, rules=in_effect)
+    report = synth.synthesize(synth_kind, final_state, log, rules=in_effect, guidance=guidance)
     elapsed = int(time.time() - start)
 
     # --- Persist + emit -----------------------------------------------------

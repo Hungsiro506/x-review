@@ -48,11 +48,15 @@ Three steps:
 2. Each model sees the others' findings, anonymized, and revises. It can only
    drop a point with code evidence, and it raises anything new it notices.
 3. One model merges the results, removes duplicates, ranks them, and writes the
-   final report with a merge decision.
+   final report with a merge decision. A deterministic pass then enforces any
+   codified [rules](#rules--codified-standards-caught-every-time) you have set:
+   a confirmed `blocks_merge` violation forces the verdict to `REQUEST CHANGES`.
 
 A reviewer is just a model CLI, a short persona, and some markdown "skill packs"
 of review knowledge. Add a skill by dropping in a file; add a model by adding a
 config entry. The tool is vendor-neutral; nothing is hardcoded to one model.
+Project **rules** add path-scoped team standards on top — see
+[Rules](#rules--codified-standards-caught-every-time).
 
 ## Install
 
@@ -98,6 +102,9 @@ x-review --deep           # more rounds + all configured reviewers
 x-review --skills go,concurrency --rounds 3
 x-review --explore        # let reviewers walk the live repo (read-only)
 x-review --list-skills
+x-review --list-rules     # show resolved project rules (no model calls)
+x-review --rules team.yaml --rounds 3   # add codified rules for this run
+x-review --no-rules       # ignore project rules for this run
 ```
 
 From Claude Code you can run `/x-review`, then ask it to fix a finding ("fix
@@ -125,6 +132,9 @@ You can extend the tool without touching its code:
   repo-local `.x-review.yaml`, or `skill_defaults` in the config. Skill packs are
   how you teach reviewers your architecture rules, domain knowledge, or the bugs
   that keep coming back.
+- **Add a rule.** Drop a YAML file in `~/.config/x-review/rules/<name>.yaml` (or
+  your repo's `.x-review/rules/`) to codify a path-scoped team standard. See
+  [Rules](#rules--codified-standards-caught-every-time). No code change.
 - **Add a reviewer.** Add an entry under `reviewers:` in the config. If its CLI
   is called differently from the others, add a branch in `xreview/reviewers.py`.
 - **Set per-repo defaults.** Commit a `.x-review.yaml` at the repo root:
@@ -137,10 +147,23 @@ You can extend the tool without touching its code:
 - **Override globally.** Put a `config.yaml` in `~/.config/x-review/` to change
   reviewers and defaults without editing the package.
 
-## Rules
+## Rules — codified standards, caught every time
 
-Rules are fine-grained, path-matched review criteria: codified team standards
-that apply only to the files they match. A rule looks like this:
+Debate is a **recall** bet: more models, arguing, catch more of what any one
+model misses. But debate has nothing to say about the standards your team has
+already written down — the layering boundary, the banned import, the rule
+everyone knows but a model has no way to know. That is a **precision** problem,
+and it is exactly what Alibaba's open-source [Open Code Review][ocr] (OCR) is
+good at: deterministic, path-scoped rule checks.
+
+Rules port OCR's precision lever into x-review **without** adopting its "let the
+rule overrule the model" stance. The result is both bets at once: the debate
+still finds what no rule anticipated, and codified rules are caught every time.
+
+[ocr]: https://github.com/alibaba/code-review
+
+A rule is a skill pack that knows which files it applies to, plus optional
+grading metadata:
 
 ```yaml
 rules:
@@ -151,15 +174,37 @@ rules:
     text: "Domain layer must not import infrastructure packages (db, kafka, http clients)."
 ```
 
-Rules strengthen the committee rather than replace it. Matched rules are given
-to every reviewer; when a finding maps to a rule, the reviewer cites the rule id
-as evidence, which makes the finding concrete and easy for the other reviewers
-to confirm. A rule marked `blocks_merge` that is confirmed becomes a blocker in
-the merge decision. Reviewers still report anything the rules do not cover, and
-a finding without a rule is just as valid. Rules add criteria; they never
-silence a reviewer.
+### What you get
 
-Rules resolve in four layers, later layers winning on the same id:
+- **A shared rubric for the debate.** Matched rules are injected into every
+  reviewer next to the skill packs. A finding stops being "I think this is bad"
+  and becomes "this violates `go-domain-no-infra`, here is the line" — much
+  harder to wave away, much easier for another reviewer to independently
+  confirm. So rules make agreement a stronger signal and convergence faster.
+- **Determinism where you have written the standard down.** A confirmed
+  `blocks_merge` violation gates the merge **in code**, not by asking the model
+  nicely. After synthesis, x-review checks which rules reviewers actually cited:
+  if a `blocks_merge` rule was cited, the **Merge decision** is forced to
+  `REQUEST CHANGES` and an **Enforced rule blockers** section is appended. The
+  model writes the narrative; the rule decides the gate.
+- **No hallucinated gate.** A `rule_id` a reviewer cites that is not actually in
+  effect (made up or stale) is dropped and logged, so a fabricated rule can
+  never block a merge.
+- **Precise, not lucky.** A layering rule fires only on the files it matches, so
+  a `kafka` import in the domain layer gets flagged consistently instead of when
+  a model happens to notice it.
+
+### The one guardrail
+
+Rules **add** criteria; they never gate or silence a reviewer. Reviewers must
+still report anything no rule covers, and a finding with no `rule_id` is just as
+valid. That single line is what separates "rules strengthen the committee" (us)
+from "rules replace the committee" (OCR's default). Code only ever *adds* a
+blocker on a confirmed hit — it never downgrades or suppresses a finding.
+
+### Where rules come from
+
+Four layers, later layers winning on the same id (mirrors OCR):
 
 1. `--rules <file>` on the command line
 2. repo `.x-review.yaml` (`rules:` list) and `.x-review/rules/*.yaml`
@@ -167,12 +212,14 @@ Rules resolve in four layers, later layers winning on the same id:
 4. bundled `xreview/data/rules/*.yaml` (ships empty, so nothing fires until you add a rule)
 
 ```bash
-x-review --list-rules     # show every resolved rule and where it came from
-x-review --rules team.yaml
+x-review --list-rules     # show every resolved rule, its source, and match — no model calls
+x-review --rules team.yaml  # add a rules file for this run
 x-review --no-rules       # turn the layer off for this run
 ```
 
-A copy-me starter is in `xreview/data/rules/axon-layered.yaml.example`.
+Rules need no install step and no code change: drop a YAML file in
+`~/.config/x-review/rules/` or your repo's `.x-review/rules/` and it is picked
+up. A copy-me starter is in `xreview/data/rules/axon-layered.yaml.example`.
 
 ## Architecture
 
@@ -181,8 +228,9 @@ x-review <branch>
   │
   ├─ gittarget   branch → diff (merge-base), changed files, uncommitted scope
   ├─ context     diff + full content of changed files; language detection
+  ├─ rules       resolve + path-match codified team rules; inject into reviewers
   ├─ debate      round 1 independent → broadcast (anonymized) → revise → … (convergence-stop)
-  ├─ synth       cluster + rank + two-audience report + merge decision
+  ├─ synth       cluster + rank + two-audience report + merge decision; enforce blocks_merge rules
   └─ saved to ~/.cache/x-review/...
 ```
 
@@ -193,10 +241,12 @@ x-review <branch>
 | `xreview/context.py` | context pack, language detection |
 | `xreview/reviewers.py` | model CLI invocation + output parsing |
 | `xreview/debate.py` | the multi-round debate loop |
-| `xreview/synth.py` | final merge, ranking, two-audience report |
+| `xreview/synth.py` | final merge, ranking, two-audience report, deterministic rule enforcement |
+| `xreview/rules.py` | rule loading (4 layers), glob matching, prompt rendering |
 | `xreview/config.py` | config + skill resolution + preflight |
 | `xreview/data/config.yaml` | reviewers, defaults, skill routing |
 | `xreview/data/skills/*.md` | knowledge packs |
+| `xreview/data/rules/*.yaml` | bundled rules (ships empty) + `.example` starter |
 
 ## What it costs
 
@@ -223,6 +273,12 @@ detection toward 80%. Use them on the changes that are worth it.
 
 - Model output is not deterministic. Treat one run as a strong signal, not
   proof. Trust the findings that more than one reviewer reaches independently.
+  The exception is rules: once a `blocks_merge` rule is cited as violated, the
+  merge gate is enforced in code, so that part of the verdict is repeatable.
+- Rules raise precision only where you have written the standard down. They do
+  not replace the debate — whether a rule is *violated* is still a model
+  judgment cited from the code; x-review only makes the *consequence*
+  deterministic.
 - The gains come from reviewers being different. With a single vendor you get
   less of that, so add a second vendor's CLI or vary the skill packs and
   personas.
@@ -235,6 +291,11 @@ detection toward 80%. Use them on the changes that are worth it.
 The multi-vendor debate idea and the benchmark numbers come from a public
 code-review benchmark and write-up. x-review is an independent reimplementation
 of that idea as a local CLI. (Article link to be added.)
+
+The **rules** layer adapts the precision model of Alibaba's open-source
+[Open Code Review][ocr] — path-scoped, deterministic rule checks with a
+four-layer config — and folds it into the debate so codified standards are
+enforced without overruling the reviewers.
 
 ## License
 

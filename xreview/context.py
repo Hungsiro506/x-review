@@ -25,9 +25,24 @@ def dominant_language(changed_files):
     return max(counts, key=counts.get)
 
 
-def build(target, max_file_lines, max_chars, explore=False):
-    """Return the shared context block string."""
+def build(target, max_file_lines, max_chars, explore=False, guidance=""):
+    """Return the shared context block string.
+
+    `guidance` is free-form per-run context from the author (design intent, focus
+    areas, a linked spec). It is placed first so every reviewer reads it before
+    the diff, and every reviewer receives the same text.
+    """
     parts = []
+    if guidance and guidance.strip():
+        parts.append("## Author's context and guidance for this review")
+        parts.append(
+            "The author of this change provided the following context. Treat any "
+            "stated design intent as the spec to check the diff against, and honor "
+            "any focus areas. This guidance narrows where to look; it does not stop "
+            "you from reporting other issues you find."
+        )
+        parts.append(guidance.strip())
+        parts.append("")
     parts.append("## Change under review")
     if target["mode"] == "range":
         parts.append(f"Range: `{target['range']}`")

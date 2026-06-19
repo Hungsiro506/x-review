@@ -84,3 +84,37 @@ def test_finding_schema_and_debate_rules_mention_rule_id():
 def test_synth_prompt_includes_rules_section():
     s = synth.SYNTH_PROMPT.format(n=1, reviews="(x)", rules="## Project rules\n(none)")
     assert "Project rules" in s
+
+
+def _state(*rule_ids):
+    return [{"id": "claude", "raw": "",
+             "parsed": {"findings": [{"title": "t", "rule_id": rid} for rid in rule_ids]}}]
+
+
+def test_enforce_blocks_merge_overrides_verdict():
+    in_effect = [{"id": "r1", "match": "x", "text": "no infra", "blocks_merge": True}]
+    out = "Some report.\n\nMerge decision: APPROVE"
+    fixed = synth._enforce_rules(out, _state("r1"), in_effect, lambda *_: None)
+    assert "Merge decision: REQUEST CHANGES" in fixed
+    assert "Enforced rule blockers" in fixed
+    assert "`r1`" in fixed
+
+
+def test_enforce_ignores_non_blocking_rule():
+    in_effect = [{"id": "r1", "match": "x", "text": "thin", "blocks_merge": False}]
+    out = "Merge decision: APPROVE"
+    fixed = synth._enforce_rules(out, _state("r1"), in_effect, lambda *_: None)
+    assert fixed == out  # untouched
+
+
+def test_enforce_ignores_bogus_rule_id():
+    in_effect = [{"id": "r1", "match": "x", "text": "t", "blocks_merge": True}]
+    out = "Merge decision: APPROVE"
+    # reviewer cites a rule id that is not in effect -> must not gate
+    fixed = synth._enforce_rules(out, _state("nope"), in_effect, lambda *_: None)
+    assert fixed == out
+
+
+def test_enforce_no_rules_is_noop():
+    out = "Merge decision: APPROVE"
+    assert synth._enforce_rules(out, _state("r1"), [], lambda *_: None) == out

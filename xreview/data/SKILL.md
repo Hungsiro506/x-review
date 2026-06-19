@@ -1,38 +1,47 @@
 ---
 name: x-review
-description: Adversarial multi-model code review of the current branch (or a named branch) as a PR-in-waiting. Claude and Codex review independently, debate across rounds to cover each other's blind spots, then a synthesizer merges findings into one ranked report with debate-derived confidence. Use when the user says "review my branch", "review this PR", "debate review", "review <branch>", or wants a second/third opinion on changes before opening or merging a PR.
+description: Multi-model code review of a git branch. Gathers context from the current Claude session (a design doc, a ticket, focus instructions, whatever the user provided) and runs the local x-review CLI, which has Claude and Codex debate the diff and merge it into one ranked verdict. Use when the user says "review my branch", "review this PR", "x-review", "review <branch>", or wants a second/third opinion before opening or merging a PR.
 ---
 
 # x-review
 
-Runs the local `x-review` CLI, which orchestrates an adversarial debate
-between multiple model CLIs (Claude + Codex by default) over the diff of a
-branch against its base, then synthesizes one ranked review.
+This skill makes the current Claude session the master driver: you gather the
+context, then hand it to the `x-review` CLI, which runs the real cross-vendor
+committee (Claude + Codex by default). The CLI is the engine. Do NOT
+re-implement the debate as Claude subagents; that would lose the cross-vendor
+diversity that makes the review work.
 
-## How to run it
+## The workflow
 
-The engine is the CLI — do NOT re-implement the debate here. From the repo the
-user wants reviewed, run (it runs long; show progress):
+1. **Settle the target.** Which branch (default: current), which base if not the
+   default branch.
+2. **Gather context from this session.** Pull together anything the user gave you
+   that the reviewers should know: a design doc or spec, the ticket/PR
+   description, focus instructions ("watch the redis counter race"), constraints,
+   links you already read. Write it to a temp file, for example
+   `/tmp/x-review-context.md`.
+3. **Run the CLI with that context.** Every committee member receives the same
+   context block:
 
-```bash
-x-review                       # current branch vs auto-detected base
-x-review <branch>              # a specific branch
-x-review --base <branch>       # override the base
-x-review --deep                # 5 rounds, all configured reviewers
-x-review --skills go,concurrency
-x-review --explore             # reviewers walk the live repo (read-only)
-```
+   ```bash
+   x-review <branch> --context-file /tmp/x-review-context.md
+   ```
 
-Stream the CLI's stderr progress to the user. When it finishes, the final
-Markdown report is printed on stdout and saved under
-`~/.cache/x-review/<repo>/<branch>/`.
+   Other useful flags: `--base <branch>`, `--deep` (more rounds + reviewers),
+   `--rules <file>` (codified team rules), `--skills go,concurrency`,
+   `--explore` (reviewers walk the repo). You can also pass short guidance inline
+   with `--context "focus on X"` instead of a file.
+4. **Stream progress** from the CLI's stderr while it runs (it takes minutes).
+5. **Relay the report.** The final ranked Markdown (manager summary + tech-lead
+   detail + merge decision) prints on stdout and is saved under
+   `~/.cache/x-review/<repo>/<branch>/`.
+6. **Act on findings.** This is where the session earns its keep: when the user
+   picks a finding ("fix #2"), implement the fix in the working tree, then offer
+   to re-run `x-review` to confirm it is resolved.
 
-## Your job around the CLI
+## Notes
 
-1. Confirm the target with the user if ambiguous (which branch, which base).
-2. Run the CLI and relay the synthesized findings.
-3. This is where you add value over the raw CLI: when the user picks a finding
-   ("fix #2"), implement the fix in the working tree, then optionally re-run
-   `x-review` to confirm it's resolved.
-
-Do not post anything to GitHub unless the user explicitly asks.
+- If the user gave no extra context, just run `x-review <branch>` without
+  `--context-file`. Context is optional, not required.
+- Clean up the temp context file when done.
+- Do not post anything to GitHub unless the user explicitly asks.

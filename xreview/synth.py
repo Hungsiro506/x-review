@@ -1,5 +1,7 @@
 """Synthesize the final debate state into one ranked, deduped review."""
 
+import re
+
 from . import reviewers
 
 SYNTH_PROMPT = """You are a senior staff engineer producing the FINAL review. Below are independent reviews of the same code change from {n} reviewers after an adversarial debate. Merge them into ONE review with TWO clearly separated audiences. Do not merge the two audiences.
@@ -60,7 +62,7 @@ def _rules_text(in_effect):
     return "\n".join(lines)
 
 
-def synthesize(synth_kind, final_state, log, rules=None):
+def synthesize(synth_kind, final_state, log, rules=None, guidance=""):
     blocks = []
     for s in final_state:
         parsed, raw = s["parsed"], s["raw"]
@@ -73,9 +75,76 @@ def synthesize(synth_kind, final_state, log, rules=None):
 
     prompt = SYNTH_PROMPT.format(n=len(final_state), reviews="\n\n".join(blocks),
                                  rules=_rules_text(rules or []))
+    if guidance and guidance.strip():
+        prompt = ("## Author's stated intent and guidance for this change\n"
+                  "Frame the report against this where relevant.\n"
+                  f"{guidance.strip()}\n\n") + prompt
     log("synthesizing final report")
     out = reviewers.invoke(synth_kind, prompt)
-    return out or _fallback(final_state)
+    if not out:
+        return _fallback(final_state)
+    return _enforce_rules(out, final_state, rules or [], log)
+
+
+def _cited_rule_ids(final_state):
+    """Every rule_id cited by any reviewer's findings (deduped)."""
+    cited = set()
+    for s in final_state:
+        parsed = s.get("parsed") or {}
+        for fnd in parsed.get("findings") or []:
+            rid = fnd.get("rule_id")
+            if rid:
+                cited.add(rid)
+    return cited
+
+
+def _enforce_rules(out, final_state, in_effect, log):
+    """Deterministic post-pass: the model advises, the rules decide.
+
+    The model's prose ranking is judgment, but a confirmed `blocks_merge` rule
+    violation is a codified standard — so we enforce it in code rather than hope
+    the synthesizer honored the instruction. We also drop citations of rule ids
+    that are not actually in effect (hallucinated or stale), so a fabricated
+    rule_id can never gate a merge.
+    """
+    by_id = {r["id"]: r for r in in_effect}
+    cited = _cited_rule_ids(final_state)
+
+    bogus = sorted(cited - by_id.keys())
+    if bogus:
+        log(f"ignoring {len(bogus)} cited rule id(s) not in effect: {', '.join(bogus)}")
+
+    confirmed_blockers = [by_id[rid] for rid in sorted(cited & by_id.keys())
+                          if by_id[rid].get("blocks_merge")]
+    if not confirmed_blockers:
+        return out
+
+    log(f"enforcing {len(confirmed_blockers)} blocks_merge rule violation(s) → REQUEST CHANGES")
+    note_lines = [
+        "",
+        "---",
+        "## Enforced rule blockers (deterministic)",
+        "The following `blocks_merge` project rules were cited as violated by a "
+        "reviewer. These gate the merge regardless of the narrative above:",
+    ]
+    for r in confirmed_blockers:
+        note_lines.append(f"- `{r['id']}`: {r['text'].strip()}")
+    note = "\n".join(note_lines)
+
+    return _force_request_changes(out) + "\n" + note
+
+
+def _force_request_changes(out):
+    """Rewrite the trailing 'Merge decision:' verdict to REQUEST CHANGES.
+
+    If no recognizable decision line is present, the caller's appended blocker
+    note still carries the verdict, so we return the text unchanged.
+    """
+    pat = re.compile(r"(Merge decision:\s*)(APPROVE|COMMENT|REQUEST CHANGES)",
+                     re.IGNORECASE)
+    if not pat.search(out):
+        return out
+    return pat.sub(lambda m: m.group(1) + "REQUEST CHANGES", out, count=1)
 
 
 def _fallback(final_state):
