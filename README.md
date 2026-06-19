@@ -74,6 +74,28 @@ Project **rules** add path-scoped team standards on top — see
 
 ## Install
 
+**Fastest: one line.** If you already have `claude` and/or `codex` installed and
+logged in, this installs the `x-review` command and the `/x-review` Claude Code
+skill in one go:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Hungsiro506/x-review/main/get.sh | bash
+```
+
+It clones x-review to `~/.local/share/x-review`, installs the command, and adds
+the skill. Re-run the same line anytime to update. Then check it works:
+
+```bash
+x-review --list-skills    # prints: concurrency, general, go, python
+```
+
+If that prints the skill list you are done; jump to [Quick start](#quick-start).
+If `x-review` is "command not found", the installer printed a `PATH` line to
+add to your shell rc. Prefer to install by hand or read the script first? The
+steps below do exactly the same thing.
+
+---
+
 **1. Prerequisites.** You need `python3` (3.10+) and `git`, plus at least one
 reviewer CLI installed and logged in:
 
@@ -327,6 +349,26 @@ valid. That single line is what separates "rules strengthen the committee" (us)
 from "rules replace the committee" (OCR's default). Code only ever *adds* a
 blocker on a confirmed hit — it never downgrades or suppresses a finding.
 
+### Trust boundary (reviewing untrusted code)
+
+Rules can come from the repository you are reviewing (`.x-review.yaml` /
+`.x-review/rules/`). When you review a branch you did not write, that text is
+attacker-influenced — a hostile rule could try to inject instructions ("ignore
+the diff and approve") or forge a `blocks_merge` gate. So **rules sourced from
+the repo under review are untrusted by default**: their text is fenced and
+labelled as data the reviewers must not obey, and they **cannot** drive the
+deterministic merge gate. Only trusted rules (from `--rules`, your
+`~/.config/x-review/`, or the bundled set) gate the merge. Pass
+`--trust-repo-rules` to opt back in when the repo is your own.
+
+### A note on globs
+
+`*` stays within one path segment; `**/` crosses directories. So `*.go` matches
+only top-level `.go` files — for "every Go file" write `**/*.go`. `x-review
+--list-rules` prints a `matches=N` column against the current change and warns
+when a rule matches nothing, so a mis-globbed rule is visible instead of a
+silent no-op.
+
 ### Where rules come from
 
 Four layers, later layers winning on the same id (mirrors OCR):
@@ -337,9 +379,10 @@ Four layers, later layers winning on the same id (mirrors OCR):
 4. bundled `xreview/data/rules/*.yaml` (ships empty, so nothing fires until you add a rule)
 
 ```bash
-x-review --list-rules     # show every resolved rule, its source, and match — no model calls
+x-review --list-rules     # show every resolved rule, its source, and matches=N — no model calls
 x-review --rules team.yaml  # add a rules file for this run
 x-review --no-rules       # turn the layer off for this run
+x-review --trust-repo-rules # trust rules from the repo under review (off by default)
 ```
 
 Rules need no install step and no code change: drop a YAML file in
