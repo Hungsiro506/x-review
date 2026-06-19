@@ -4,14 +4,23 @@ Multi-model code review for a git branch. It runs more than one AI model over
 your changes, has them debate and back every claim with code, and gives you one
 ranked review instead of several conflicting ones.
 
+Run it from the terminal:
+
 ```bash
 cd ~/your/repo
 x-review
 ```
 
-Or run it without leaving Claude Code: the installer adds a `/x-review` skill
-that gathers context from your session and drives the review for you. See
-[Starting from a Claude Code session](#starting-from-a-claude-code-session).
+Or run it without leaving Claude Code. The installer adds a `/x-review` skill, so
+you give Claude context in the chat and let it drive:
+
+```text
+> here's the design doc for this change: <paste>. focus on the locking.
+> /x-review feature/my-branch
+```
+
+The skill gathers that context from your session and runs the review with it.
+More in [Starting from a Claude Code session](#starting-from-a-claude-code-session).
 
 ## Why
 
