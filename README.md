@@ -61,18 +61,25 @@ It is **open-source-first and vendor-neutral**: a "reviewer" is just a model CLI
   - [`claude`](https://claude.com/claude-code) (Claude Code)
   - [`codex`](https://developers.openai.com/codex/cli) (Codex CLI)
 
-**Install the tool**
+**Install the tool** (recommended — works everywhere)
 
 ```bash
-git clone https://github.com/hungsiro506/x-review
+git clone https://github.com/Hungsiro506/x-review
 cd x-review
-./install.sh          # pip install -e . + installs the Claude Code skill
+bash install.sh       # installs the `x-review` command + the Claude Code skill
 ```
 
-Or just:
+`install.sh` tries a normal `pip install -e .`, then `pipx`, and finally falls
+back to a self-contained launcher shim — so it works even on the
+"externally-managed" Python (PEP 668) you get from Homebrew or recent Debian/
+Ubuntu, where a bare `pip install` is blocked. If it prints a PATH hint, add the
+shown directory to your `PATH`.
+
+**Install directly with pip** (only if your Python isn't externally-managed):
 
 ```bash
-pip install --user -e .
+pip install --user -e .            # may fail with "externally-managed-environment"
+# on a PEP 668 Python, use one of:  pipx install -e .   |   pip install -e . --break-system-packages
 ```
 
 A preflight check verifies every reviewer's CLI is present and authenticated
@@ -120,7 +127,7 @@ This is the whole point of the design — extend without touching code:
   `skill_defaults` in config. Skill packs are how you teach reviewers your
   architecture standards, domain rules, or recurring-bug patterns.
 - **Add a reviewer / persona:** add an entry under `reviewers:` in config. If its
-  CLI is invoked differently, add a branch in `x-review/reviewers.py`.
+  CLI is invoked differently, add a branch in `xreview/reviewers.py`.
 - **Per-repo defaults:** commit a `.x-review.yaml` at the repo root:
 
   ```yaml
@@ -145,13 +152,13 @@ x-review <branch>
 
 | File | Responsibility |
 |------|----------------|
-| `x-review/cli.py` | argument parsing, orchestration |
-| `x-review/gittarget.py` | branch→diff resolution |
-| `x-review/context.py` | context pack, language detection |
-| `x-review/reviewers.py` | model CLI invocation + output parsing |
-| `x-review/debate.py` | the multi-round adversarial loop |
-| `x-review/synth.py` | final merge / ranking / two-audience report |
-| `x-review/config.py` | config + skill resolution + preflight |
+| `xreview/cli.py` | argument parsing, orchestration |
+| `xreview/gittarget.py` | branch→diff resolution |
+| `xreview/context.py` | context pack, language detection |
+| `xreview/reviewers.py` | model CLI invocation + output parsing |
+| `xreview/debate.py` | the multi-round adversarial loop |
+| `xreview/synth.py` | final merge / ranking / two-audience report |
+| `xreview/config.py` | config + skill resolution + preflight |
 | `xreview/data/config.yaml` | reviewers, defaults, skill routing |
 | `xreview/data/skills/*.md` | knowledge packs |
 

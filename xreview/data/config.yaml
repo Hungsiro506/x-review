@@ -32,7 +32,7 @@ defaults:
 # Skill packs auto-selected by the dominant language of the diff.
 # Override per-run with --skills, or per-repo with .x-review.yaml at the repo root.
 skill_defaults:
-  go: [general, concurrency]
+  go: [general, go, concurrency]
   cpp: [general, concurrency]
   python: [general]
   default: [general]
