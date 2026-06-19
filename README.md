@@ -44,7 +44,8 @@ back-and-forth.
 
 Three steps:
 
-1. Each model reviews the diff and the changed files on its own.
+1. Each model reviews the diff and the changed files on its own, plus any
+   context you hand in (a design doc, the ticket, focus instructions).
 2. Each model sees the others' findings, anonymized, and revises. It can only
    drop a point with code evidence, and it raises anything new it notices.
 3. One model merges the results, removes duplicates, ranks them, and writes the
@@ -101,14 +102,18 @@ x-review HEAD~3..HEAD     # explicit commit range
 x-review --deep           # more rounds + all configured reviewers
 x-review --skills go,concurrency --rounds 3
 x-review --explore        # let reviewers walk the live repo (read-only)
+x-review --context "focus on the redis counter race"   # free-form guidance
+x-review --context-file design-doc.md                  # hand in a spec/doc
 x-review --list-skills
 x-review --list-rules     # show resolved project rules (no model calls)
 x-review --rules team.yaml --rounds 3   # add codified rules for this run
 x-review --no-rules       # ignore project rules for this run
 ```
 
-From Claude Code you can run `/x-review`, then ask it to fix a finding ("fix
-#2") in the same session.
+From Claude Code you can run `/x-review`: it gathers the context from your
+session (a doc you pasted, the ticket, focus instructions), runs the review with
+that context, brings back the report, and helps you fix a finding ("fix #2") in
+the same session.
 
 The report prints to stdout and is also saved under
 `~/.cache/x-review/<repo>/<branch>/<timestamp>.md`. Nothing is written into the
@@ -122,6 +127,29 @@ repo being reviewed.
   ahead does not pollute the review.
 - uncommitted working-tree changes are included only when reviewing the current
   branch, which is the "review what I'm working on" case.
+
+## Giving the reviewers context
+
+The way you usually review is: open Claude or Cursor, give it the branch, and
+add some context or guidance. x-review supports that directly. Anything you pass
+is placed at the top of the prompt and given to **every** committee member (and
+the synthesizer), so they all start from the same understanding.
+
+```bash
+x-review feature/foo --context "this PR lazy-loads PKs; watch the fetch ordering"
+x-review feature/foo --context-file design-doc.md      # a spec or ticket
+cat ticket.md | x-review feature/foo --context -        # from stdin
+```
+
+Both flags repeat and combine. Stated design intent is treated as the spec to
+check the diff against; focus instructions narrow where reviewers look without
+stopping them from reporting anything else. Context gets its own share of the
+prompt budget, so a large doc never crowds out the diff.
+
+From a Claude Code session this is automatic: `/x-review` collects the context
+you built up in the conversation, writes it to a file, and passes it with
+`--context-file`. The session gathers context and drives; the CLI runs the
+cross-vendor committee.
 
 ## Extending it
 
@@ -227,7 +255,7 @@ up. A copy-me starter is in `xreview/data/rules/axon-layered.yaml.example`.
 x-review <branch>
   │
   ├─ gittarget   branch → diff (merge-base), changed files, uncommitted scope
-  ├─ context     diff + full content of changed files; language detection
+  ├─ context     your guidance (if any) + diff + full content of changed files; language detection
   ├─ rules       resolve + path-match codified team rules; inject into reviewers
   ├─ debate      round 1 independent → broadcast (anonymized) → revise → … (convergence-stop)
   ├─ synth       cluster + rank + two-audience report + merge decision; enforce blocks_merge rules
