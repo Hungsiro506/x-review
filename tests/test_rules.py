@@ -86,6 +86,19 @@ def test_synth_prompt_includes_rules_section():
     assert "Project rules" in s
 
 
+def test_large_guidance_does_not_starve_the_diff():
+    from xreview import context
+    t = {"mode": "branch", "base_ref": "main", "target_ref": "feat",
+         "merge_base": "abc", "include_uncommitted": False, "changed_files": [],
+         "diff": "DIFF_MARKER_PRESENT", "uncommitted_diff": "", "repo": ".",
+         "repo_name": "r"}
+    huge = "X" * 100_000
+    out = context.build(t, max_file_lines=10, max_chars=2000, guidance=huge)
+    # guidance is capped to half the budget, and the diff still makes it in
+    assert "DIFF_MARKER_PRESENT" in out
+    assert "guidance truncated" in out
+
+
 def _state(*rule_ids):
     return [{"id": "claude", "raw": "",
              "parsed": {"findings": [{"title": "t", "rule_id": rid} for rid in rule_ids]}}]

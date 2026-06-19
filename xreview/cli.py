@@ -33,7 +33,7 @@ def _gather_guidance(inline, files):
     parts = []
     for f in files or []:
         try:
-            parts.append(Path(f).read_text())
+            parts.append(Path(f).read_text(errors="replace"))
         except OSError as e:
             print(f"warning: could not read --context-file {f}: {e}", file=sys.stderr)
     for c in inline or []:
@@ -153,7 +153,7 @@ def main():
     log(f"repo: {target['repo_name']}   scope: {scope}")
     log(f"language: {language}   skills: {', '.join(skill_names)}")
     rules_note = f"{len(in_effect)} in effect" if not args.no_rules else "disabled"
-    ctx_note = f"context: explore" if args.explore else "context: diff+files"
+    ctx_note = "context: explore" if args.explore else "context: diff+files"
     if guidance:
         ctx_note += f" + {len(guidance)} chars guidance"
     log(f"reviewers: {', '.join(r['id'] for r in reviewer_cfgs)}   rounds: {rounds}   "

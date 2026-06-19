@@ -32,17 +32,24 @@ def build(target, max_file_lines, max_chars, explore=False, guidance=""):
     areas, a linked spec). It is placed first so every reviewer reads it before
     the diff, and every reviewer receives the same text.
     """
-    parts = []
+    # Guidance gets its own budget (up to half) so a large design doc can never
+    # starve the diff and file contents, which are truncated separately below.
+    guidance_block = ""
     if guidance and guidance.strip():
-        parts.append("## Author's context and guidance for this review")
-        parts.append(
+        g = guidance.strip()
+        gbudget = max_chars // 2
+        if len(g) > gbudget:
+            g = g[:gbudget] + "\n... [guidance truncated to fit budget]"
+        guidance_block = (
+            "## Author's context and guidance for this review\n"
             "The author of this change provided the following context. Treat any "
             "stated design intent as the spec to check the diff against, and honor "
             "any focus areas. This guidance narrows where to look; it does not stop "
-            "you from reporting other issues you find."
+            "you from reporting other issues you find.\n\n"
+            f"{g}\n\n"
         )
-        parts.append(guidance.strip())
-        parts.append("")
+
+    parts = []
     parts.append("## Change under review")
     if target["mode"] == "range":
         parts.append(f"Range: `{target['range']}`")
@@ -87,7 +94,8 @@ def build(target, max_file_lines, max_chars, explore=False, guidance=""):
             parts.append(content)
             parts.append("```")
 
-    text = "\n".join(parts)
-    if len(text) > max_chars:
-        text = text[:max_chars] + "\n\n... [context truncated to fit budget]"
-    return text
+    rest = "\n".join(parts)
+    budget = max_chars - len(guidance_block)
+    if len(rest) > budget:
+        rest = rest[:budget] + "\n\n... [context truncated to fit budget]"
+    return guidance_block + rest

@@ -160,7 +160,7 @@ Rules port OCR's precision lever into x-review **without** adopting its "let the
 rule overrule the model" stance. The result is both bets at once: the debate
 still finds what no rule anticipated, and codified rules are caught every time.
 
-[ocr]: https://github.com/alibaba/code-review
+[ocr]: https://github.com/alibaba/open-code-review
 
 A rule is a skill pack that knows which files it applies to, plus optional
 grading metadata:
