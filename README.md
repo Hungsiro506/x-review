@@ -9,6 +9,10 @@ cd ~/your/repo
 x-review
 ```
 
+Or run it without leaving Claude Code: the installer adds a `/x-review` skill
+that gathers context from your session and drives the review for you. See
+[Starting from a Claude Code session](#starting-from-a-claude-code-session).
+
 ## Why
 
 I used AI models to review a pull request and got contradictory answers: Claude
@@ -163,6 +167,34 @@ the same session.
 The report prints to stdout and is also saved under
 `~/.cache/x-review/<repo>/<branch>/<timestamp>.md`. Nothing is written into the
 repo being reviewed.
+
+## Starting from a Claude Code session
+
+There are two ways to run a review: the `x-review` command, or the `/x-review`
+skill inside Claude Code. The skill is installed for you by `install.sh`, and it
+matches how reviews usually start: you are already talking to Claude about a
+change, you have a design doc or a ticket open, and you want a second opinion
+without leaving the conversation.
+
+In a Claude Code session:
+
+1. Give it the branch and whatever context you have. Paste the design doc, link
+   the ticket, say what to focus on. You are just talking.
+2. Run `/x-review <branch>` (or `/x-review` for the current branch).
+3. The skill collects the context from your conversation, writes it to a file,
+   and calls the `x-review` CLI with `--context-file`, so every committee member
+   sees the same context you gave Claude.
+4. It streams progress, brings back the ranked report, and when you pick a
+   finding ("fix #2") it makes the change in your working tree. Then you can
+   re-run to confirm.
+
+The session gathers context and drives; the CLI runs the real cross-vendor
+committee (Claude + Codex). Nothing is posted anywhere unless you ask.
+
+**From Cursor or another terminal agent.** The skill is specific to Claude Code,
+but the command works anywhere. In Cursor's terminal (or any shell) run
+`x-review <branch> --context-file notes.md`, then let your agent read the saved
+report under `~/.cache/x-review/...` and apply the fixes.
 
 ## How target resolution works
 
