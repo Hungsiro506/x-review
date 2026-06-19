@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "debate-review"
+version = "0.1.0"
+description = "Adversarial multi-model code review for any repo — models debate, then synthesize one ranked review."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "brvu" }]
+requires-python = ">=3.10"
+dependencies = ["pyyaml>=6"]
+keywords = ["code-review", "llm", "ai", "claude", "codex", "debate", "pull-request"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/brvu/debate-review"
+Issues = "https://github.com/brvu/debate-review/issues"
+
+[project.scripts]
+debate-review = "dreview.cli:main"
+
+[tool.setuptools]
+packages = ["dreview"]
+
+[tool.setuptools.package-data]
+dreview = ["data/config.yaml", "data/skills/*.md", "data/SKILL.md"]

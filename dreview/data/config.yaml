@@ -1,0 +1,38 @@
+# debate-review configuration.
+# A reviewer = a model CLI + a persona + a stack of skill packs.
+# Add a vendor by adding an entry here and (if its CLI invocation differs)
+# a branch in dreview/reviewers.py.
+
+reviewers:
+  - id: claude
+    kind: claude            # how to invoke (see reviewers.py)
+    persona: "a thorough senior engineer who walks the full call chain and the boring paths (error handling, retries, cleanup) where real bugs hide"
+    skills: [general]
+  - id: codex
+    kind: codex
+    persona: "a terse, concrete reviewer who only speaks up about real defects and points at the exact line that is wrong and why"
+    skills: [general]
+  # Same vendor as `claude`, different mandate. Targets the concurrency gap
+  # where a single Claude scores poorly. Off by default; included under --deep.
+  - id: claude-concur
+    kind: claude
+    persona: "a concurrency and distributed-state specialist who assumes every shared structure is racy until proven otherwise"
+    skills: [general, concurrency]
+
+synthesizer:
+  kind: claude              # which model merges the final reviews
+
+defaults:
+  reviewers: [claude, codex]
+  rounds: 2
+  deep_rounds: 5
+  max_file_lines: 400       # truncate each changed file's content in the context pack
+  max_context_chars: 120000 # hard cap on the whole context pack
+
+# Skill packs auto-selected by the dominant language of the diff.
+# Override per-run with --skills, or per-repo with .debate-review.yaml at the repo root.
+skill_defaults:
+  go: [general, concurrency]
+  cpp: [general, concurrency]
+  python: [general]
+  default: [general]
