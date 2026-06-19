@@ -10,9 +10,19 @@ User dir defaults to ~/.config/x-review (override with XREVIEW_HOME).
 """
 
 import os
+import sys
 from pathlib import Path
 
 import yaml
+
+
+def _read_yaml(path):
+    """Parse a YAML file, turning parse errors into a friendly RuntimeError."""
+    try:
+        with open(path) as f:
+            return yaml.safe_load(f) or {}
+    except yaml.YAMLError as e:
+        raise RuntimeError(f"{path} is not valid YAML: {e}") from None
 
 PKG_DIR = Path(__file__).resolve().parent
 DATA_DIR = PKG_DIR / "data"
@@ -37,19 +47,26 @@ def load_config():
     with open(DEFAULT_CONFIG) as f:
         cfg = yaml.safe_load(f)
     if USER_CONFIG.exists():
-        with open(USER_CONFIG) as f:
-            user = yaml.safe_load(f) or {}
-        cfg.update(user)  # top-level override (reviewers, defaults, ...)
+        cfg.update(_read_yaml(USER_CONFIG))  # top-level override (reviewers, defaults, ...)
     return cfg
+
+
+_KNOWN_REPO_KEYS = {"reviewers", "skills", "rules"}
 
 
 def load_repo_overrides(repo):
     """Per-repo .x-review.yaml at the repo root, if present."""
     p = Path(repo) / ".x-review.yaml"
-    if p.exists():
-        with open(p) as f:
-            return yaml.safe_load(f) or {}
-    return {}
+    if not p.exists():
+        return {}
+    data = _read_yaml(p)
+    unknown = set(data) - _KNOWN_REPO_KEYS
+    if unknown:
+        print(f"  ▸ warning: {p} has unrecognized top-level key(s): "
+              f"{', '.join(sorted(unknown))} (known: {', '.join(sorted(_KNOWN_REPO_KEYS))}). "
+              f"Did you mean one of those? Those entries are ignored.",
+              file=sys.stderr)
+    return data
 
 
 def _skill_path(name):

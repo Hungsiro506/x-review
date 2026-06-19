@@ -69,9 +69,26 @@ def resolve(target_arg=None, base_arg=None, start="."):
     base = base_arg or detect_default_branch(repo)
     base_ref = _base_ref_for_diff(repo, base)
 
+    if not _git(repo, "rev-parse", "--verify", "--quiet", f"{base_ref}^{{commit}}", check=False):
+        raise RuntimeError(
+            f"base '{base}' not found (resolved to '{base_ref}'). "
+            f"Pass --base <branch> with a ref that exists, e.g. `git branch -a` to list them.")
+
     merge_base = _git(repo, "merge-base", base_ref, target_ref, check=False)
     diff = _git(repo, "diff", f"{base_ref}...{target_ref}", check=False)
     files = _git(repo, "diff", "--name-only", f"{base_ref}...{target_ref}", check=False).splitlines()
+
+    # No merge-base means the two refs share no history — almost always a shallow
+    # clone. Three-dot diff then yields an empty diff, which we must not report as
+    # "nothing to review" (that hides the real problem).
+    if not merge_base:
+        shallow = _git(repo, "rev-parse", "--is-shallow-repository", check=False) == "true"
+        hint = ("this is a shallow clone — run `git fetch --unshallow` (or fetch enough "
+                "history) so a merge-base with the base exists"
+                if shallow else
+                f"'{base_ref}' and '{target_ref}' share no common history")
+        raise RuntimeError(
+            f"no merge-base between '{base_ref}' and '{target_ref}': {hint}.")
 
     is_current = (target_ref == current)
     uncommitted = ""

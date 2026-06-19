@@ -59,28 +59,58 @@ def main():
                     help="file whose contents are added as context (e.g. a design doc; repeatable)")
     ap.add_argument("--rules", help="path to an extra rules YAML file for this run")
     ap.add_argument("--no-rules", action="store_true", help="disable project rule injection")
+    ap.add_argument("--trust-repo-rules", action="store_true",
+                    help="trust rules sourced from the repo under review (let them gate the "
+                         "merge and be framed as authoritative). Off by default: repo-sourced "
+                         "rules are treated as untrusted data, not instructions.")
     ap.add_argument("--list-skills", action="store_true", help="list available skill packs and exit")
     ap.add_argument("--list-rules", action="store_true", help="list resolved project rules and exit")
     ap.add_argument("-o", "--output", help="write the final report to this path too")
     args = ap.parse_args()
 
-    config = cfg.load_config()
+    try:
+        config = cfg.load_config()
+    except RuntimeError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
 
     if args.list_skills:
         print("Available skill packs:", ", ".join(cfg.list_available_skills()))
         return 0
 
     if args.list_rules:
-        resolved = rules.load_rules(gittarget.repo_root(), args.rules)
+        if args.no_rules:
+            print("Project rules are disabled (--no-rules); none would be applied.")
+            return 0
+        try:
+            resolved = rules.load_rules(gittarget.repo_root(), args.rules)
+        except RuntimeError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
         if not resolved:
             print("No project rules resolved. Add YAML to ~/.config/x-review/rules/ "
                   "or your repo's .x-review.yaml. See xreview/data/rules/*.example.")
             return 0
+        # Best-effort: if we can resolve the current change, show how many files
+        # each rule actually matches, so a mis-globbed rule (e.g. `*.go`, which
+        # does NOT cross directories) is visibly a no-op instead of silently one.
+        changed = []
+        try:
+            changed = gittarget.resolve(args.target, args.base)["changed_files"]
+        except RuntimeError:
+            pass
         print(f"Resolved {len(resolved)} rule(s):")
         for r in resolved:
             sev = r.get("severity", "-")
             bm = "blocks-merge" if r.get("blocks_merge") else "-"
-            print(f"  {r['id']:<32} {sev:<8} {bm:<12} match={r['match']}  [{r.get('_source','?')}]")
+            hits = (f"matches={sum(1 for f in changed if rules.matches(r, f))}"
+                    if changed else "matches=?")
+            print(f"  {r['id']:<32} {sev:<8} {bm:<12} match={r['match']:<18} "
+                  f"{hits:<12} [{r.get('_source','?')}]")
+        if changed and any(not any(rules.matches(r, f) for f in changed) for r in resolved):
+            print("\nNote: rules with matches=0 apply to no changed file. Remember `*` "
+                  "stays within one path segment — use `**/` to cross directories "
+                  "(e.g. `**/*.go`, not `*.go`).")
         return 0
 
     # --- Resolve git target -------------------------------------------------
@@ -94,7 +124,11 @@ def main():
         print("Nothing to review: the diff against the base is empty.", file=sys.stderr)
         return 1
 
-    repo_overrides = cfg.load_repo_overrides(target["repo"])
+    try:
+        repo_overrides = cfg.load_repo_overrides(target["repo"])
+    except RuntimeError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
 
     # --- Select reviewers ---------------------------------------------------
     all_reviewers = {r["id"]: r for r in config["reviewers"]}
@@ -138,8 +172,26 @@ def main():
     # --- Project rules (matched to the changed files) -----------------------
     in_effect = []
     if not args.no_rules:
-        all_rules = rules.load_rules(target["repo"], args.rules)
+        try:
+            all_rules = rules.load_rules(target["repo"], args.rules)
+        except RuntimeError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
         in_effect = rules.match_rules(all_rules, target["changed_files"])
+        # Warn about loaded rules that matched nothing — usually a glob mistake,
+        # otherwise they silently do nothing (e.g. `*.go` won't cross directories).
+        matched_ids = {r["id"] for r in in_effect}
+        for r in all_rules:
+            if r["id"] not in matched_ids:
+                log(f"rule '{r['id']}' (match={r['match']}) matched no changed file "
+                    f"— check the glob (`*` stays in one segment; use `**/` to cross dirs)")
+        # Trust boundary: rules from the repo under review are untrusted unless the
+        # user opts in. Untrusted rules are framed as data and never gate the merge.
+        rules.apply_trust(in_effect, trust_repo_rules=args.trust_repo_rules)
+        untrusted = sum(1 for r in in_effect if not r["_trusted"])
+        if untrusted:
+            log(f"{untrusted} rule(s) from the repo under review treated as UNTRUSTED "
+                f"(data only, no merge gate); pass --trust-repo-rules to trust them")
         rules_block = rules.render_block(in_effect)
         if rules_block:
             for rid in skills_by_id:
@@ -174,6 +226,16 @@ def main():
     start = time.time()
     final_state = dbt.run(reviewer_cfgs, context, rounds, args.explore,
                           target["repo"], skills_by_id, log)
+
+    # Guard against silent failure: if every reviewer returned nothing (e.g. a CLI
+    # that passed preflight but is not actually logged in), do NOT save an empty
+    # "(no response)" report and exit 0 — that reads as a clean review.
+    if all(not (s.get("raw") or "").strip() for s in final_state):
+        print("error: every reviewer returned no output — the model CLIs likely are not "
+              "authenticated (e.g. run `claude` once to /login, or check `codex`). "
+              "No report saved.", file=sys.stderr)
+        return 4
+
     report = synth.synthesize(synth_kind, final_state, log, rules=in_effect, guidance=guidance)
     elapsed = int(time.time() - start)
 
