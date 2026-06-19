@@ -226,12 +226,23 @@ Debate is a **recall** bet: more models, arguing, catch more of what any one
 model misses. But debate has nothing to say about the standards your team has
 already written down — the layering boundary, the banned import, the rule
 everyone knows but a model has no way to know. That is a **precision** problem,
-and it is exactly what Alibaba's open-source [Open Code Review][ocr] (OCR) is
-good at: deterministic, path-scoped rule checks.
+and precision at scale is exactly what Alibaba's open-source
+[Open Code Review][ocr] (OCR) was built for.
 
-Rules port OCR's precision lever into x-review **without** adopting its "let the
-rule overrule the model" stance. The result is both bets at once: the debate
-still finds what no rule anticipated, and codified rules are caught every time.
+OCR is not a toy. It began as Alibaba Group's internal AI code-review assistant,
+ran for two years across tens of thousands of developers, and flagged millions
+of defects before being open-sourced. On a benchmark of 200 real PRs from 50
+repositories across 10 languages (1,505 ground-truth issues cross-validated by
+80+ senior engineers) it delivered higher Precision and F1 than a general-purpose
+agent on the same model, at roughly **1/9 the tokens**, by deliberately trading
+recall for precision. Its core lever is deterministic, path-scoped rule checks.
+
+x-review borrows that lever for its rules layer **without** adopting OCR's "let
+the rule overrule the model" stance. The two tools sit at opposite ends and
+complement each other: OCR maximizes precision for one model, x-review maximizes
+recall across several. Bringing OCR-style rules into the debate gives you both
+bets at once: the debate still finds what no rule anticipated, and codified
+standards are caught every time.
 
 [ocr]: https://github.com/alibaba/open-code-review
 
@@ -366,9 +377,14 @@ code-review benchmark and write-up. x-review is an independent reimplementation
 of that idea as a local CLI. (Article link to be added.)
 
 The **rules** layer adapts the precision model of Alibaba's open-source
-[Open Code Review][ocr] — path-scoped, deterministic rule checks with a
-four-layer config — and folds it into the debate so codified standards are
-enforced without overruling the reviewers.
+[Open Code Review][ocr], a battle-tested tool: two years as Alibaba's internal
+review assistant, tens of thousands of developers, millions of defects flagged,
+and a public benchmark (200 PRs, 50 repos, 10 languages, 1,505 issues validated
+by 80+ engineers) showing higher Precision and F1 at about 1/9 the tokens of a
+general-purpose agent. x-review folds OCR's path-scoped, deterministic rule
+checks into the debate so codified standards are enforced without overruling the
+reviewers. x-review is an independent project and is not affiliated with or
+endorsed by the Open Code Review team.
 
 ## License
 
