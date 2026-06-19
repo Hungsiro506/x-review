@@ -20,7 +20,7 @@ def test_bundled_skills_present():
 
 
 def test_synth_prompt_formats():
-    s = synth.SYNTH_PROMPT.format(n=2, reviews="(x)")
+    s = synth.SYNTH_PROMPT.format(n=2, reviews="(x)", rules="(none)")
     assert "SECTION 1" in s and "SECTION 2" in s and "Merge decision" in s
 
 

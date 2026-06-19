@@ -1,0 +1,32 @@
+# Example rules file. Copy to ~/.config/x-review/rules/<name>.yaml (or your
+# repo's .x-review/rules/) and edit. Files ending in .example are NOT loaded.
+#
+# A rule applies only to files matching `match`. Glob syntax:
+#   **   crosses directories      *  within one path segment
+#   ?    one character            {a,b}  alternates
+# Optional: severity (blocker|high|medium|low) and blocks_merge.
+
+rules:
+  - id: go-domain-no-infra
+    match: "**/domain/**/*.go"
+    severity: high
+    blocks_merge: true
+    text: >
+      Domain layer must not import infrastructure packages (database drivers,
+      kafka clients, HTTP clients, cloud SDKs). Depend on a port interface
+      defined in the domain and implemented in the repo/adapter layer.
+
+  - id: go-handler-thin
+    match: "**/handler/**/*.go"
+    severity: medium
+    text: >
+      Handlers should stay thin: parse/validate input, call a usecase, map the
+      result to a response. Business logic belongs in the usecase layer, not
+      the handler.
+
+  - id: no-context-background-in-request-path
+    match: "**/{usecase,handler,repo}/**/*.go"
+    severity: medium
+    text: >
+      Do not use context.Background() or context.TODO() on a request path.
+      Propagate the incoming request context so cancellation and deadlines work.

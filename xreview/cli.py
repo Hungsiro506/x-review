@@ -20,7 +20,7 @@ from pathlib import Path
 from . import config as cfg
 from . import context as ctx
 from . import debate as dbt
-from . import gittarget, synth
+from . import gittarget, rules, synth
 
 
 def log(msg):
@@ -36,7 +36,10 @@ def main():
     ap.add_argument("--reviewers", help="comma-separated reviewer ids to use")
     ap.add_argument("--skills", help="comma-separated skill packs (overrides auto/repo)")
     ap.add_argument("--explore", action="store_true", help="reviewers walk the live repo (read-only)")
+    ap.add_argument("--rules", help="path to an extra rules YAML file for this run")
+    ap.add_argument("--no-rules", action="store_true", help="disable project rule injection")
     ap.add_argument("--list-skills", action="store_true", help="list available skill packs and exit")
+    ap.add_argument("--list-rules", action="store_true", help="list resolved project rules and exit")
     ap.add_argument("-o", "--output", help="write the final report to this path too")
     args = ap.parse_args()
 
@@ -44,6 +47,19 @@ def main():
 
     if args.list_skills:
         print("Available skill packs:", ", ".join(cfg.list_available_skills()))
+        return 0
+
+    if args.list_rules:
+        resolved = rules.load_rules(gittarget.repo_root(), args.rules)
+        if not resolved:
+            print("No project rules resolved. Add YAML to ~/.config/x-review/rules/ "
+                  "or your repo's .x-review.yaml. See xreview/data/rules/*.example.")
+            return 0
+        print(f"Resolved {len(resolved)} rule(s):")
+        for r in resolved:
+            sev = r.get("severity", "-")
+            bm = "blocks-merge" if r.get("blocks_merge") else "-"
+            print(f"  {r['id']:<32} {sev:<8} {bm:<12} match={r['match']}  [{r.get('_source','?')}]")
         return 0
 
     # --- Resolve git target -------------------------------------------------
@@ -93,6 +109,16 @@ def main():
         names = r.get("skills", []) + [s for s in skill_names if s not in r.get("skills", [])]
         skills_by_id[r["id"]] = cfg.resolve_skills(names)
 
+    # --- Project rules (matched to the changed files) -----------------------
+    in_effect = []
+    if not args.no_rules:
+        all_rules = rules.load_rules(target["repo"], args.rules)
+        in_effect = rules.match_rules(all_rules, target["changed_files"])
+        rules_block = rules.render_block(in_effect)
+        if rules_block:
+            for rid in skills_by_id:
+                skills_by_id[rid] = (skills_by_id[rid] + "\n\n" + rules_block).strip()
+
     # --- Banner -------------------------------------------------------------
     if target["mode"] == "range":
         scope = f"range {target['range']}"
@@ -102,8 +128,9 @@ def main():
             scope += " (+ uncommitted)"
     log(f"repo: {target['repo_name']}   scope: {scope}")
     log(f"language: {language}   skills: {', '.join(skill_names)}")
+    rules_note = f"{len(in_effect)} in effect" if not args.no_rules else "disabled"
     log(f"reviewers: {', '.join(r['id'] for r in reviewer_cfgs)}   rounds: {rounds}   "
-        f"context: {'explore' if args.explore else 'diff+files'}")
+        f"context: {'explore' if args.explore else 'diff+files'}   rules: {rules_note}")
 
     context = ctx.build(target,
                         max_file_lines=config["defaults"]["max_file_lines"],
@@ -114,7 +141,7 @@ def main():
     start = time.time()
     final_state = dbt.run(reviewer_cfgs, context, rounds, args.explore,
                           target["repo"], skills_by_id, log)
-    report = synth.synthesize(synth_kind, final_state, log)
+    report = synth.synthesize(synth_kind, final_state, log, rules=in_effect)
     elapsed = int(time.time() - start)
 
     # --- Persist + emit -----------------------------------------------------

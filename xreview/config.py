@@ -18,6 +18,7 @@ PKG_DIR = Path(__file__).resolve().parent
 DATA_DIR = PKG_DIR / "data"
 DEFAULT_CONFIG = DATA_DIR / "config.yaml"
 BUNDLED_SKILLS = DATA_DIR / "skills"
+BUNDLED_RULES = DATA_DIR / "rules"
 SKILL_MD = DATA_DIR / "SKILL.md"
 
 USER_DIR = Path(
@@ -28,6 +29,7 @@ USER_DIR = Path(
 )
 USER_CONFIG = USER_DIR / "config.yaml"
 USER_SKILLS = USER_DIR / "skills"
+USER_RULES = USER_DIR / "rules"
 
 
 def load_config():

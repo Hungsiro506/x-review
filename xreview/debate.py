@@ -20,6 +20,7 @@ FINDING_SCHEMA = (
     '  "findings": [\n'
     '    {"title": "short bug title", "severity": "high|medium|low",\n'
     '     "location": "file:line or function", "confidence": "high|medium|low",\n'
+    '     "rule_id": "id of a matched project rule, or null if none applies",\n'
     '     "explanation": "what is wrong and why, citing the code"}\n'
     '  ]\n'
     '}\n'
@@ -33,6 +34,8 @@ RULES = (
     "- Do not concede a point to end the debate. Defend a correct position with evidence.\n"
     "- Change your stance only when shown irrefutable code-based evidence — not confidence.\n"
     "- If another reviewer's argument reveals a new issue, raise it.\n"
+    "- If a finding matches a listed project rule, set its rule_id and cite the rule. "
+    "Project rules add criteria; still report issues no rule covers.\n"
 )
 
 
@@ -47,9 +50,10 @@ def _render_findings(parsed, raw):
     if parsed and parsed.get("findings") is not None:
         lines = [f"Summary: {parsed.get('summary', '')}"]
         for fnd in parsed["findings"]:
+            rule = f", rule {fnd['rule_id']}" if fnd.get("rule_id") else ""
             lines.append(
                 f"- [{fnd.get('severity', '?')}] {fnd.get('title', '')} "
-                f"({fnd.get('location', '?')}, confidence {fnd.get('confidence', '?')}): "
+                f"({fnd.get('location', '?')}, confidence {fnd.get('confidence', '?')}{rule}): "
                 f"{fnd.get('explanation', '')}"
             )
         return "\n".join(lines)

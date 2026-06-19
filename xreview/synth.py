@@ -15,6 +15,8 @@ SYNTH_PROMPT = """You are a senior staff engineer producing the FINAL review. Be
   - Low = minor, cheap, or cosmetic.
 - Be calibrated: do not inflate severity; if something is valid but low-impact, say so plainly.
 - Use the SAME numbering across both sections so a manager and tech lead can both say "issue #3" and mean the same thing.
+- Project rules (below) are codified team criteria. A finding confirmed to violate a rule is concrete, not speculative: rank it accordingly and tag it with its rule id in the tech-lead detail. If a violated rule is marked "blocks merge", treat it as a blocker in the merge decision. Findings that match no rule are still valid; do not down-rank them for lacking a rule.
+{rules}
 
 ## SECTION 1: MANAGER SUMMARY
 Audience: a smart manager with little system/technical context.
@@ -47,7 +49,18 @@ Output GitHub-flavored Markdown with exactly the two sections above (headed `===
 """
 
 
-def synthesize(synth_kind, final_state, log):
+def _rules_text(in_effect):
+    if not in_effect:
+        return "## Project rules\n(none in effect for this change)"
+    lines = ["## Project rules in effect for this change"]
+    for r in in_effect:
+        sev = f" [{r['severity']}]" if r.get("severity") else ""
+        bm = " (blocks merge)" if r.get("blocks_merge") else ""
+        lines.append(f"- `{r['id']}`{sev}{bm}: {r['text']}")
+    return "\n".join(lines)
+
+
+def synthesize(synth_kind, final_state, log, rules=None):
     blocks = []
     for s in final_state:
         parsed, raw = s["parsed"], s["raw"]
@@ -58,7 +71,8 @@ def synthesize(synth_kind, final_state, log):
             body = (raw or "(no response)")[:6000]
         blocks.append(f"### Reviewer: {s['id']}\n{body}")
 
-    prompt = SYNTH_PROMPT.format(n=len(final_state), reviews="\n\n".join(blocks))
+    prompt = SYNTH_PROMPT.format(n=len(final_state), reviews="\n\n".join(blocks),
+                                 rules=_rules_text(rules or []))
     log("synthesizing final report")
     out = reviewers.invoke(synth_kind, prompt)
     return out or _fallback(final_state)

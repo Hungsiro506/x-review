@@ -137,6 +137,43 @@ You can extend the tool without touching its code:
 - **Override globally.** Put a `config.yaml` in `~/.config/x-review/` to change
   reviewers and defaults without editing the package.
 
+## Rules
+
+Rules are fine-grained, path-matched review criteria: codified team standards
+that apply only to the files they match. A rule looks like this:
+
+```yaml
+rules:
+  - id: go-domain-no-infra
+    match: "**/domain/**/*.go"     # ** crosses dirs, * within a segment, {a,b} alternates
+    severity: high                 # optional: blocker|high|medium|low
+    blocks_merge: true             # optional
+    text: "Domain layer must not import infrastructure packages (db, kafka, http clients)."
+```
+
+Rules strengthen the committee rather than replace it. Matched rules are given
+to every reviewer; when a finding maps to a rule, the reviewer cites the rule id
+as evidence, which makes the finding concrete and easy for the other reviewers
+to confirm. A rule marked `blocks_merge` that is confirmed becomes a blocker in
+the merge decision. Reviewers still report anything the rules do not cover, and
+a finding without a rule is just as valid. Rules add criteria; they never
+silence a reviewer.
+
+Rules resolve in four layers, later layers winning on the same id:
+
+1. `--rules <file>` on the command line
+2. repo `.x-review.yaml` (`rules:` list) and `.x-review/rules/*.yaml`
+3. user `~/.config/x-review/rules/*.yaml`
+4. bundled `xreview/data/rules/*.yaml` (ships empty, so nothing fires until you add a rule)
+
+```bash
+x-review --list-rules     # show every resolved rule and where it came from
+x-review --rules team.yaml
+x-review --no-rules       # turn the layer off for this run
+```
+
+A copy-me starter is in `xreview/data/rules/axon-layered.yaml.example`.
+
 ## Architecture
 
 ```
